@@ -1,0 +1,7 @@
+.DS_Store
+.vscode
+*.o
+mySoftwarePosix
+mySoftwareAtomic
+mySoftwareTestAndSet
+exercice-1/diagrams/*.png

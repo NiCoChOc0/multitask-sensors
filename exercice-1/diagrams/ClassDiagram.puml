@@ -1,0 +1,78 @@
+@startuml
+
+dataclass MSG_BLOCK
+
+class MultitaskingAccumulator
+MultitaskingAccumulator : + main()
+MultitaskingAccumulator : + shared_memory_lock()
+MultitaskingAccumulator : + shared_memory_unlock()
+
+interface ISensor
+ISensor : + getInput(int i): MSG_BLOCK
+
+interface IAcquisitionManager
+IAcquisitionManager : + getProducedCount(): Integer
+IAcquisitionManager : + getMessage():MSG_BLOCK
+
+class AcquisitionManager
+AcquisitionManager : - producers[4]: pthread_t
+AcquisitionManager : - m1: pthread_mutex_t
+AcquisitionManager : - producedCount: Integer
+AcquisitionManager : - readFromSensorSem: sem_t
+AcquisitionManager : - readFromSharedMomorySem: sem_t
+AcquisitionManager : - produce()
+AcquisitionManager : - createSynchronizationObjects()
+AcquisitionManager : - incrementProducedCount()
+AcquisitionManager : + acquisitionManagerInit()
+AcquisitionManager : + acquisitionManagerJoin()
+AcquisitionManager : + readFromSensorPost()
+AcquisitionManager : + readFromSensorWait()
+AcquisitionManager : + readFromSharedMomoryPost()
+AcquisitionManager : + readFromSharedMomoryWait()
+
+interface IMessageAdder
+IMessageAdder : + getCurrentSum(): MSG_BLOCK
+IMessageAdder : + getConsumedCount(): Integer
+
+class MessageAdder
+MessageAdder : - consumer: pthread_t
+MessageAdder : - currentSum: MSG_BLOCK
+MessageAdder : - consumedCount: Integer
+MessageAdder : - sum()
+MessageAdder : - incrementConsumeCount()
+MessageAdder : + messageAdderInit()
+MessageAdder : + messageAdderJoin()
+
+
+class Msg
+Msg : + messageAdd()
+Msg : + messageCheck()
+
+interface IDisplay
+IDisplay : + messageDisplay(MSG_BLOCK mBlock)
+IDisplay : + print(Integer producedCount, Integer consumedCount)
+
+class DisplayManager
+DisplayManager : - display: pthread_t
+DisplayManager : - display()
+DisplayManager : + displayManagerInit()
+DisplayManager : + displayManagerJoin()
+
+AcquisitionManager .d.> ISensor : use
+AcquisitionManager .r.|> IAcquisitionManager : implement
+
+MessageAdder .r.|> IMessageAdder : implement
+MessageAdder *-d- Msg 
+
+DisplayManager .d.|> IDisplay : implement
+
+MessageAdder ..> IAcquisitionManager : use
+DisplayManager ..> IMessageAdder : use
+DisplayManager ..> IAcquisitionManager : use
+
+
+MultitaskingAccumulator *-r- AcquisitionManager : 1
+MultitaskingAccumulator *-r- MessageAdder : 1
+MultitaskingAccumulator *-d- DisplayManager : 1
+
+@enduml

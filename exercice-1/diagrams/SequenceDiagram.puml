@@ -1,0 +1,95 @@
+@startuml
+!pragma teoz true
+box "main process"
+    participant bash
+
+    box "MultitaskingAccumulator" #lightblue
+        participant "main" as main
+
+        participant "shared_memory:???" as shared_memory
+        participant "shared_memory_mutex:pthread_mutex_t" as shared_memory_mutex
+    end box
+
+    box "AcquisitionManager" #lightblue
+        participant "producers:pthread_t[4]" as thread_am
+        participant "readFromSensorSem:sem_t=0" as readFromSensorSem
+        participant "readFromSharedMomory:sem_t=0" as readFromSharedMomory
+        participant "producedCount:int" as producedCount
+    end box
+
+    box "MessageAdder" #lightblue
+        participant "thread:pthread_t" as thread_ma
+    end box
+
+    box "DisplayManager" #lightblue
+        participant "thread:pthread_t" as thread_dm
+    end box
+
+    box "SensorManager" #lightblue
+    end box
+    participant "sumDone:sem_t=0" as sumDone
+end box
+
+activate bash
+bash -> main --++ : ./acquisitionManager
+
+
+main -> thread_am : acquisitionManagerInit
+activate thread_am
+main -> thread_ma : messageAdderInit
+activate thread_ma
+main -> thread_dm : displayManagerInit
+activate thread_dm
+
+
+thread_am -> readFromSensorSem : createSynchronizationObjects()
+loop for i < PRODUCER_LOOP_LIMIT
+    thread_am -> thread_am : produce()
+    thread_am -> readFromSensorSem : readFromSensorWait()
+    readFromSensorSem --> thread_am
+    thread_am -> SensorManager : getInput()
+    SensorManager --> thread_am 
+    thread_am -> shared_memory_mutex : shared_memory_lock()
+    thread_am -> shared_memory : writeData()???
+    thread_am -> shared_memory_mutex : shared_memory_unlock()
+    thread_am -> readFromSharedMomory : readFromSharedMomoryPost()
+    thread_am -> producedCount : incrementProducedCount()
+end
+
+
+loop for i < PRODUCER_LOOP_LIMIT
+    thread_ma -> thread_ma : sum()
+    thread_ma -> readFromSharedMomory : readFromSharedMomoryWait()
+    thread_ma -> shared_memory_mutex : shared_memory_lock()
+    thread_ma -> shared_memory : readData()???
+    thread_ma -> shared_memory_mutex : shared_memory_unlock()
+end
+
+
+loop for diffCount < DISPLAY_LOOP_LIMIT
+    thread_dm -> thread_dm : display()
+    thread_dm -> sumDone : sumDoneWait()
+    thread_dm -> MessageAdder : getCurrentSum()
+    thread_dm -> thread_dm : messageDisplay()
+    thread_dm -> MessageAdder : getConsumedCount()
+    thread_dm -> MessageAdder : getProducedCount()
+    thread_dm -> thread_dm : print() [METTRE SUR UN THREAD ?]
+end
+
+
+main -> thread_dm : displayManagerJoin
+deactivate main
+thread_dm --> main
+deactivate thread_dm
+
+main -> thread_ma : messageAdderJoin
+thread_ma --> main
+deactivate thread_ma
+
+main -> thread_am : acquisitionManagerJoin
+thread_am --> main
+deactivate thread_am
+
+main -> bash --++: "return ERROR_SUCCESS"
+
+@enduml
